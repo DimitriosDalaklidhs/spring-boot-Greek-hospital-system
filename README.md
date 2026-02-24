@@ -199,4 +199,4 @@ The database uses Greek-language table and column names (e.g. `ασθενεισ`
 ## Author
 
 **Dimitrios Dalaklidis**  
-[LinkedIn](https://linkedin.com/in/dimitrios-dalaklidis) · [GitHub](https://github.com/DimitriosDalaklidhs)
+[LinkedIn](https://www.linkedin.com/in/dimitris-dalaklidis-a72838397/) · [GitHub](https://github.com/DimitriosDalaklidhs)
