@@ -27,7 +27,6 @@ A secure, production-structured REST API for managing hospital patients, hospita
 | Database | MySQL |
 | DB Access | Spring JdbcTemplate |
 | Connection Pool | HikariCP |
-| Containerization | Docker |
 | Build Tool | Maven |
 
 ---
@@ -95,7 +94,6 @@ The project follows a strict **Controller → Service → DAO** layering. Contro
 
 ### Prerequisites
 - Java 17+
-- Docker & Docker Compose (recommended)
 - MySQL 8+
 
 ### Configuration
@@ -109,18 +107,6 @@ spring.datasource.password=your_password
 
 jwt.secret=your-secret-key-at-least-32-characters-long
 jwt.expiration-ms=86400000
-```
-
-### Run with Docker
-
-```bash
-docker build -t hospital-api .
-docker run -p 8080:8080 \
-  -e SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/hospital_db \
-  -e SPRING_DATASOURCE_USERNAME=root \
-  -e SPRING_DATASOURCE_PASSWORD=secret \
-  -e JWT_SECRET=your-secret-key-min-32-chars \
-  hospital-api
 ```
 
 ### Run Locally
