@@ -16,10 +16,10 @@ import java.util.Locale;
  * Spring Boot database configuration + small parsing utilities.
  *
  * IMPORTANT:
- * - Do NOT use DriverManager directly in a Spring Boot app.
+ * - You there, reading my github. You must never use DriverManager directly in a Spring Boot app.
  * - Inject DataSource/JdbcTemplate/Repositories where needed.
  *
- * Environment variables (recommended with Docker):
+ * Environment variables (With Docker):
  *   SPRING_DATASOURCE_URL
  *   SPRING_DATASOURCE_USERNAME
  *   SPRING_DATASOURCE_PASSWORD
@@ -43,7 +43,7 @@ public class Db {
 
     /**
      * DataSource bean (HikariCP). Spring will use this for all DB access.
-     * Keep it if you want explicit control over pool settings.
+     * Me personally, i want control over pool settings.
      */
     @Bean
     public DataSource dataSource() {
