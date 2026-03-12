@@ -193,7 +193,7 @@ https://spring-boot-greek-hospital-system-production.up.railway.app
 
 Example:
 
-POST https://spring-boot-greek-hospital-system-production.up.railway.app/api/auth/login
+POST: https://spring-boot-greek-hospital-system-production.up.railway.app/api/auth/login
 
 ## Deployment
 
