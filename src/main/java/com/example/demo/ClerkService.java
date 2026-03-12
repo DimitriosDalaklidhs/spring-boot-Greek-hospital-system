@@ -17,7 +17,7 @@ public class ClerkService {
 
     /**
      * Register patient and hospitalization atomically.
-     * In Spring we use @Transactional instead of manual commit/rollback.
+     * In Spring, @Transactional instead of manual commit or rollback.
      */
     @Transactional
     public RegisterResult registerPatientAndHospitalization(RegisterRequest req) {
