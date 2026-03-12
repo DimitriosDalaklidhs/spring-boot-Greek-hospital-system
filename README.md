@@ -26,6 +26,8 @@ A secure, production-structured REST API for managing hospital patients, hospita
 | Security | Spring Security + JWT (jjwt) |
 | Database | MySQL |
 | DB Access | Spring JdbcTemplate |
+| Cloud Hosting | Railway |
+| Database Hosting | Railway MySQL |
 | Connection Pool | HikariCP |
 | Build Tool | Maven |
 
