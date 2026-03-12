@@ -181,7 +181,17 @@ All errors return a consistent JSON structure:
 The database uses Greek-language table and column names (e.g. `ασθενεισ`, `νοσηλειεσ_ασθενων`) as this project was built against a university-provided schema modelling the Greek public healthcare system.
 
 ---
+## Live Deployment
 
+The API is deployed on Railway and publicly accessible:
+
+**Base URL**
+
+https://spring-boot-greek-hospital-system-production.up.railway.app
+
+Example:
+
+POST https://spring-boot-greek-hospital-system-production.up.railway.app/api/auth/login
 ## Author
 
 **Dimitrios Dalaklidis**  
