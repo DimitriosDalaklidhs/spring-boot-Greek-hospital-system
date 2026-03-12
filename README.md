@@ -195,6 +195,15 @@ Example:
 
 POST: https://spring-boot-greek-hospital-system-production.up.railway.app/api/auth/login
 
+**Note:**  
+
+This project provides a secured REST API and does not include a browser-based user interface.  
+Most endpoints require JWT authentication and must be accessed using an API client such as Postman, curl, or a frontend application.
+
+Typical workflow:
+1. Authenticate via `POST /api/auth/login`
+2. Receive a JWT token
+3. Include the token in subsequent requests using the `Authorization: Bearer <token>` header
 ## Deployment
 
 The application is deployed using **Railway** with automatic GitHub integration.
