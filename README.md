@@ -6,14 +6,14 @@ A secure, production-structured REST API for managing hospital patients, hospita
 
 ## Features
 
-- **JWT Authentication** — stateless token-based auth with role extraction
-- **Role-Based Access Control** — fine-grained endpoint permissions per HTTP method for `DOCTOR`, `CLERK`, and `ADMIN` roles
-- **Patient Management** — register and look up patients by ΑΜΚΑ (Greek social security number)
-- **ΑΜΚΑ Validation** — full Luhn algorithm implementation with birth-date extraction
-- **Hospitalization Workflow** — admit patients, assign hospitals, discharge with date tracking
-- **Medical Tests** — record and retrieve patient test history with cost tracking
-- **Atomic Clerk Operations** — patient registration + hospitalization in a single transactional request
-- **Structured Error Handling** — consistent JSON error responses across all failure types
+- **JWT Authentication** : stateless token-based auth with role extraction
+- **Role-Based Access Control** : fine-grained endpoint permissions per HTTP method for `DOCTOR`, `CLERK`, and `ADMIN` roles
+- **Patient Management** : register and look up patients by ΑΜΚΑ (Greek social security number)
+- **ΑΜΚΑ Validation** : full Luhn algorithm implementation with birth-date extraction
+- **Hospitalization Workflow** : admit patients, assign hospitals, discharge with date tracking
+- **Medical Tests** : record and retrieve patient test history with cost tracking
+- **Atomic Clerk Operations** : patient registration + hospitalization in a single transactional request
+- **Structured Error Handling** : consistent JSON error responses across all failure types
 
 ---
 
