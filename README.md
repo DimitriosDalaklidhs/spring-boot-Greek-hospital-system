@@ -194,6 +194,29 @@ https://spring-boot-greek-hospital-system-production.up.railway.app
 Example:
 
 POST https://spring-boot-greek-hospital-system-production.up.railway.app/api/auth/login
+
+## Deployment
+
+The application is deployed using **Railway** with automatic GitHub integration.
+
+Pipeline:
+
+GitHub → Railway Build → Cloud Deployment → Public HTTPS Endpoint
+
+Every push to the `main` branch triggers an automatic redeployment.
+
+## Environment variables used in production:
+
+SPRING_DATASOURCE_URL
+
+SPRING_DATASOURCE_USERNAME
+
+SPRING_DATASOURCE_PASSWORD 
+
+JWT_SECRET
+
+JWT_EXPIRATION_MS
+
 ## Author
 
 **Dimitrios Dalaklidis**  
