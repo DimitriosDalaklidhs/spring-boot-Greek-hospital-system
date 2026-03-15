@@ -1,3 +1,4 @@
+```java
 package com.example.demo.auth;
 
 import jakarta.validation.Valid;
@@ -20,43 +21,69 @@ import java.util.Set;
 @RequestMapping("/api/auth")
 public class AuthController {
 
+    // =========================
+    // DTOs
+    // =========================
+
     public record LoginRequest(
             @NotBlank String username,
-            @NotBlank String password) {}
+            @NotBlank String password
+    ) {}
 
-    public record LoginResponse(String token, String username, String role) {}
+    public record LoginResponse(
+            String token,
+            String username,
+            String role
+    ) {}
 
     public record RegisterRequest(
             @NotBlank @Size(min = 3, max = 100) String username,
-            @NotBlank @Size(min = 8)            String password,
-            @NotBlank                           String role) {}
+            @NotBlank @Size(min = 8) String password,
+            @NotBlank String role
+    ) {}
+
+    // =========================
+    // Allowed roles
+    // =========================
 
     private static final Set<String> ALLOWED_ROLES =
             Set.of("ROLE_DOCTOR", "ROLE_CLERK", "ROLE_ADMIN");
 
-    private final AuthenticationManager authManager;
-    private final JwtUtil               jwtUtil;
-    private final PasswordEncoder       passwordEncoder;
-    private final JdbcTemplate          jdbc;
+    // =========================
+    // Dependencies
+    // =========================
 
-    public AuthController(AuthenticationManager authManager,
-                          JwtUtil jwtUtil,
-                          PasswordEncoder passwordEncoder,
-                          JdbcTemplate jdbc) {
-        this.authManager     = authManager;
-        this.jwtUtil         = jwtUtil;
+    private final AuthenticationManager authManager;
+    private final JwtUtil jwtUtil;
+    private final PasswordEncoder passwordEncoder;
+    private final JdbcTemplate jdbc;
+
+    public AuthController(
+            AuthenticationManager authManager,
+            JwtUtil jwtUtil,
+            PasswordEncoder passwordEncoder,
+            JdbcTemplate jdbc
+    ) {
+        this.authManager = authManager;
+        this.jwtUtil = jwtUtil;
         this.passwordEncoder = passwordEncoder;
-        this.jdbc            = jdbc;
+        this.jdbc = jdbc;
     }
 
     // =========================
     // LOGIN
     // =========================
+
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest req) {
+
         try {
+
             Authentication auth = authManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(req.username(), req.password())
+                    new UsernamePasswordAuthenticationToken(
+                            req.username(),
+                            req.password()
+                    )
             );
 
             String role = auth.getAuthorities().stream()
@@ -66,16 +93,25 @@ public class AuthController {
 
             String token = jwtUtil.generateToken(auth.getName(), role);
 
-            return new LoginResponse(token, auth.getName(), role);
+            return new LoginResponse(
+                    token,
+                    auth.getName(),
+                    role
+            );
 
-        } catch (AuthenticationException e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+        } catch (AuthenticationException ex) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Invalid username or password"
+            );
         }
     }
 
     // =========================
     // REGISTER
     // =========================
+
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     public void register(@Valid @RequestBody RegisterRequest req) {
@@ -89,16 +125,19 @@ public class AuthController {
             );
         }
 
-        String sql = "INSERT INTO users (username, password, role) VALUES (?, ?, ?)";
+        String encodedPassword = passwordEncoder.encode(req.password());
 
         try {
+
             jdbc.update(
-                    sql,
+                    "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
                     req.username(),
-                    passwordEncoder.encode(req.password()),
+                    encodedPassword,
                     role
             );
-        } catch (org.springframework.dao.DuplicateKeyException e) {
+
+        } catch (org.springframework.dao.DuplicateKeyException ex) {
+
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Username already exists: " + req.username()
@@ -106,3 +145,4 @@ public class AuthController {
         }
     }
 }
+```
