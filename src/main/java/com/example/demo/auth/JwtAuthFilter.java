@@ -1,4 +1,4 @@
-```java
+
 package com.example.demo.auth;
 
 import jakarta.servlet.FilterChain;
@@ -64,4 +64,3 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         chain.doFilter(request, response);
     }
 }
-```
