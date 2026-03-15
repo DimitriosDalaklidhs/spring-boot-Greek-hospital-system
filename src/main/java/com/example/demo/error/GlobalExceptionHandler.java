@@ -1,6 +1,8 @@
 package com.example.demo.error;
 
 import com.example.demo.DoctorService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -16,13 +18,15 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     public record ApiError(String code, String message, int status, OffsetDateTime timestamp) {}
 
     //  Keep the original HTTP status (401, 400, 403, etc.)
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ApiError> handleResponseStatus(ResponseStatusException ex) {
         int status = ex.getStatusCode().value();
-        String code = ex.getStatusCode().toString(); // e.g. "401 UNAUTHORIZED"
+        String code = ex.getStatusCode().toString();
         String message = ex.getReason() != null ? ex.getReason() : ex.getMessage();
 
         return ResponseEntity.status(status).body(
@@ -80,9 +84,10 @@ public class GlobalExceptionHandler {
         );
     }
 
-    //  Fallback -> 500
+    //  Fallback -> 500 — logs the full stack trace so we can debug
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleAny(Exception ex) {
+        log.error("Unhandled exception: {}", ex.getMessage(), ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                 new ApiError("INTERNAL_ERROR", "Παρουσιάστηκε σφάλμα στον διακομιστή.", 500, OffsetDateTime.now())
         );
