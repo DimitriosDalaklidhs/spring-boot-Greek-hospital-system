@@ -1,9 +1,11 @@
+```java
 package com.example.demo.auth;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -30,12 +32,22 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     FilterChain chain)
             throws ServletException, IOException {
 
+        String path = request.getServletPath();
+
+        //  Skip JWT validation for authentication endpoints
+        if (path.startsWith("/api/auth/")) {
+            chain.doFilter(request, response);
+            return;
+        }
+
         String header = request.getHeader("Authorization");
 
         if (header != null && header.startsWith(BEARER_PREFIX)) {
+
             String token = header.substring(BEARER_PREFIX.length());
 
             if (jwtUtil.isValid(token)) {
+
                 String username = jwtUtil.getUsername(token);
                 String role     = jwtUtil.getRole(token);
 
@@ -52,3 +64,4 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         chain.doFilter(request, response);
     }
 }
+```
