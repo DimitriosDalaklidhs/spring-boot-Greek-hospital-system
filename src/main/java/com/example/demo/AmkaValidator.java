@@ -6,7 +6,7 @@ import java.time.LocalDate;
 /**
  * AMKA Validator (Luhn algorithm as described in the Excel file)
  *
- * AMKA Structure (11 digits):
+ * AMKA Structure (is 11 digits):
  * - Positions 1-6: Birth date (DDMMYY)
  * - Positions 7-10: Sequential number
  * - Position 11: Check digit (Luhn)
