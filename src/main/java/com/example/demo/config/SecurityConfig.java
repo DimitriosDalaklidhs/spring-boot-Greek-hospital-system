@@ -1,3 +1,4 @@
+
 package com.example.demo.config;
 
 import com.example.demo.auth.JwtAuthFilter;
@@ -84,7 +85,7 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(10);
+        return new BCryptPasswordEncoder(12);
     }
 
     @Bean
