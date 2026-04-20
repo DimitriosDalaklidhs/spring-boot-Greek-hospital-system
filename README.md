@@ -1,6 +1,6 @@
 # Greek Hospital Management REST API
 
-A secure, production-structured REST API for managing hospital patients, hospitalizations, and medical tests. Built with **Java 17**, **Spring Boot 3**, and **MySQL**.
+A secure, production-structured REST API for managing hospital patients, hospitalizations, and medical tests. Built with **Java 24**, **Spring Boot 4**, and **MySQL**.
 
 ---
 
@@ -21,8 +21,8 @@ A secure, production-structured REST API for managing hospital patients, hospita
 
 | Layer | Technology |
 |---|---|
-| Language | Java 17 |
-| Framework | Spring Boot 3 |
+| Language | Java 24 |
+| Framework | Spring Boot 4.0.2 |
 | Security | Spring Security + JWT (jjwt) |
 | Database | MySQL |
 | DB Access | Spring JdbcTemplate |
@@ -101,7 +101,7 @@ The project follows a strict **Controller → Service → DAO** layering. Contro
 ## Getting Started
 
 ### Prerequisites
-- Java 17+
+- Java 24+
 - MySQL 8+
 
 ### Configuration
@@ -121,6 +121,12 @@ jwt.expiration-ms=86400000
 
 ```bash
 ./mvnw spring-boot:run
+```
+
+### Run Tests
+
+```bash
+./mvnw test
 ```
 
 ---
@@ -189,6 +195,7 @@ All errors return a consistent JSON structure:
 The database uses Greek-language table and column names (e.g. `ασθενεισ`, `νοσηλειεσ_ασθενων`) as this project was built against a university-provided schema modelling the Greek public healthcare system.
 
 ---
+
 ## Live Deployment
 
 The API is deployed on Railway and publicly accessible:
@@ -201,15 +208,16 @@ Example:
 
 POST: https://spring-boot-greek-hospital-system-production.up.railway.app/api/auth/login
 
-**Note:**  
+**Note:**
 
-This project provides a secured REST API and does not include a browser-based user interface.  
+This project provides a secured REST API and does not include a browser-based user interface.
 Most endpoints require JWT authentication and must be accessed using an API client such as Postman, curl, or a frontend application.
 
 Typical workflow:
 1. Authenticate via `POST /api/auth/login`
 2. Receive a JWT token
 3. Include the token in subsequent requests using the `Authorization: Bearer <token>` header
+
 ## Deployment
 
 The application is deployed using **Railway** with automatic GitHub integration.
@@ -226,7 +234,7 @@ SPRING_DATASOURCE_URL
 
 SPRING_DATASOURCE_USERNAME
 
-SPRING_DATASOURCE_PASSWORD 
+SPRING_DATASOURCE_PASSWORD
 
 JWT_SECRET
 
@@ -234,5 +242,5 @@ JWT_EXPIRATION_MS
 
 ## Author
 
-**Dimitrios Dalaklidis**  
+**Dimitrios Dalaklidis**
 [LinkedIn](https://www.linkedin.com/in/dimitris-dalaklidis-a72838397/) · [GitHub](https://github.com/DimitriosDalaklidhs)
