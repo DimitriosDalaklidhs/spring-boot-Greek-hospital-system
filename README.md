@@ -38,7 +38,7 @@ A secure, production-structured REST API for managing hospital patients, hospita
 ```
 com.example.demo
 ├── auth/
-│   ├── JwtUtil.java               # Token generation & validation
+│   ├── JwtUtil.java                # Token generation & validation
 │   ├── JwtAuthFilter.java         # Per-request JWT filter
 │   ├── UserDetailsServiceImpl.java
 │   └── AuthController.java        # /api/auth/login, /api/auth/register
@@ -57,6 +57,12 @@ com.example.demo
 ├── ClerkService.java              # Atomic registration workflow
 ├── AmkaValidator.java             # Luhn + birth-date logic
 └── Db.java                        # DataSource config + parsing utils
+
+src/test/java/com.example.demo
+└── auth/
+    ├── AuthControllerTest.java     # 8 tests — login + register flows
+    ├── JwtUtilTest.java            # 6 tests — generate, parse, validate, expiry
+    └── UserDetailsServiceImplTest.java  # 2 tests — found + not found
 ```
 
 The project follows a strict **Controller → Service → DAO** layering. Controllers handle HTTP, services own transactions and business rules, DAOs handle SQL.
