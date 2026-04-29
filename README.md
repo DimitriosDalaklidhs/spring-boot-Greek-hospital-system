@@ -1,19 +1,17 @@
 # Greek Hospital Management REST API
 
-A secure, production-structured REST API for managing hospital patients, hospitalizations, and medical tests. Built with **Java 24**, **Spring Boot 4**, and **MySQL**.
+A secure, production structured REST API for managing hospital patients, hospitalizations, and medical tests. Built with **Java 24**, **Spring Boot 3**, and **MySQL**, deployed on Railway with automatic CI/CD from GitHub.
 
 ---
 
-## Features
+## Highlights
 
-- **JWT Authentication** : stateless token-based auth with role extraction
-- **Role-Based Access Control** : fine-grained endpoint permissions per HTTP method for `DOCTOR`, `CLERK`, and `ADMIN` roles
-- **Patient Management** : register and look up patients by ΑΜΚΑ (Greek social security number)
-- **ΑΜΚΑ Validation** : full Luhn algorithm implementation with birth-date extraction
-- **Hospitalization Workflow** : admit patients, assign hospitals, discharge with date tracking
-- **Medical Tests** : record and retrieve patient test history with cost tracking
-- **Atomic Clerk Operations** : patient registration + hospitalization in a single transactional request
-- **Structured Error Handling** : consistent JSON error responses across all failure types
+- **Atomic clerk workflow** : patient registration + hospitalization in a single transactional request
+- **ΑΜΚΑ validation** : full Luhn implementation with birth-date extraction and century pivot logic
+- **Per-method role-based access control** : fine-grained authorization (DOCTOR / CLERK / ADMIN) at the HTTP-method level
+- **Stateless JWT authentication** with role extraction at the filter layer
+- **Strict Controller → Service → DAO layering** with transactions owned by the service tier
+- **Live deployment** on Railway with automated redeploys on every push to `main`
 
 ---
 
@@ -22,59 +20,82 @@ A secure, production-structured REST API for managing hospital patients, hospita
 | Layer | Technology |
 |---|---|
 | Language | Java 24 |
-| Framework | Spring Boot 4.0.2 |
+| Framework | Spring Boot 3 |
 | Security | Spring Security + JWT (jjwt) |
-| Database | MySQL |
+| Database | MySQL 8 |
 | DB Access | Spring JdbcTemplate |
-| Cloud Hosting | Railway |
-| Database Hosting | Railway MySQL |
 | Connection Pool | HikariCP |
 | Build Tool | Maven |
+| Hosting | Railway (app + MySQL) |
+
+---
+
+## Domain Context
+
+The schema models the Greek public healthcare system and was built against a university-provided specification. Table and column names are in Greek (e.g. `ασθενεισ`, `νοσηλειεσ_ασθενων`), and patient identity is keyed on **ΑΜΚΑ**, the 11-digit Greek social security number that encodes the holder's birth date.
+
+This domain context shapes two of the more interesting parts of the codebase: the ΑΜΚΑ validator and the clerk admission workflow, both described below.
 
 ---
 
 ## Architecture
-
 ```
+The project follows a strict **Controller → Service → DAO** separation. Controllers handle HTTP concerns only, services own transactions and business rules, and DAOs encapsulate SQL.
 com.example.demo
 ├── auth/
-│   ├── JwtUtil.java                # Token generation & validation
-│   ├── JwtAuthFilter.java         # Per-request JWT filter
+│   ├── JwtUtil.java                    → token generation & validation
+│   ├── JwtAuthFilter.java              → per-request JWT filter
 │   ├── UserDetailsServiceImpl.java
-│   └── AuthController.java        # /api/auth/login, /api/auth/register
+│   └── AuthController.java             → /api/auth/login, /api/auth/register
 ├── config/
-│   └── SecurityConfig.java        # Filter chain, role rules, CORS
+│   └── SecurityConfig.java             → filter chain, role rules, CORS
 ├── error/
-│   └── GlobalExceptionHandler.java
-├── PatientController.java
-├── PatientDao.java
-├── HospitalizationController.java
-├── HospitalizationDao.java
-├── PatientTestController.java
-├── PatientTestDao.java
-├── DoctorService.java             # Core business logic
-├── ClerkController.java
-├── ClerkService.java              # Atomic registration workflow
-├── AmkaValidator.java             # Luhn + birth-date logic
-└── Db.java                        # DataSource config + parsing utils
-
+│   └── GlobalExceptionHandler.java     → consistent JSON error envelope
+├── patient/
+│   ├── PatientController.java
+│   └── PatientDao.java
+├── hospitalization/
+│   ├── HospitalizationController.java
+│   └── HospitalizationDao.java
+├── test/
+│   ├── PatientTestController.java
+│   └── PatientTestDao.java
+├── doctor/
+│   └── DoctorService.java              → core medical-workflow logic
+├── clerk/
+│   ├── ClerkController.java
+│   └── ClerkService.java               → atomic registration + admission
+├── validation/
+│   └── AmkaValidator.java              → Luhn + birth-date extraction
+└── Db.java                             → DataSource config + parsing utils
 src/test/java/com.example.demo
 └── auth/
-    ├── AuthControllerTest.java     # 8 tests — login + register flows
-    ├── JwtUtilTest.java            # 6 tests — generate, parse, validate, expiry
-    └── UserDetailsServiceImplTest.java  # 2 tests — found + not found
+├── AuthControllerTest.java         → 8 tests, login + register flows
+├── JwtUtilTest.java                → 6 tests, generate/parse/validate/expiry
+└── UserDetailsServiceImplTest.java → 2 tests, found + not found
 ```
+---
 
-The project follows a strict **Controller → Service → DAO** layering. Controllers handle HTTP, services own transactions and business rules, DAOs handle SQL.
+## Security Model
+
+Authentication is stateless and JWT-based. The `JwtAuthFilter` runs once per request, extracts and validates the token, and populates the `SecurityContext` with the authenticated principal and authorities. Role checks are then enforced declaratively in `SecurityConfig` at the **HTTP-method level** — the same URL can be readable by a CLERK but writable only by a DOCTOR.
+
+| Role | Capabilities |
+|---|---|
+| `ADMIN` | User account creation |
+| `DOCTOR` | Full clinical access — record tests, discharge patients |
+| `CLERK` | Front-desk operations — register patients, admit |
+
+This matters because in a hospital setting, a clerk should be able to admit a patient but never record a medical test, and a doctor should be able to discharge a patient but should not be creating user accounts. The matrix below reflects that separation.
 
 ---
 
-## API Overview
+## API Reference
 
 ### Auth
 | Method | Endpoint | Role | Description |
 |---|---|---|---|
-| POST | `/api/auth/login` | Public | Get JWT token |
+| POST | `/api/auth/login` | Public | Obtain JWT token |
 | POST | `/api/auth/register` | ADMIN | Create a new user account |
 
 ### Patients
@@ -98,11 +119,45 @@ The project follows a strict **Controller → Service → DAO** layering. Contro
 
 ---
 
+## Notable Implementation Details
+
+### Atomic clerk admission
+
+In a real hospital, a clerk receiving a new patient performs two logically inseparable actions: create the patient record and admit them. Splitting these into two API calls would leave room for a half-completed admission if the second call failed.
+
+`ClerkService` wraps both operations in a single `@Transactional` boundary. If admission fails, the patient insert is rolled back. The controller exposes this as a single endpoint so the client cannot accidentally produce a partial state.
+
+### ΑΜΚΑ validation
+
+ΑΜΚΑ (Αριθμός Μητρώου Κοινωνικής Ασφάλισης) is an 11-digit identifier: `DDMMYY` + sequential number + Luhn check digit. The validator performs:
+
+- Length and digit-only checks
+- Full Luhn algorithm, doubling even position digits from the left, summing digits of the doubled values, comparing against the check digit
+- Birth-date extraction with **century pivot logic** : the two digit year is disambiguated by comparing against the current date, since a `01015012345` could mean 1950 or 2050
+
+### Consistent error envelope
+
+`GlobalExceptionHandler` translates every exception path that is, validation failures, missing entities, auth errors, constraint violations. All into a single JSON shape:
+
+```json
+{
+  "code": "NOT_FOUND",
+  "message": "Δεν βρέθηκε ασθενής με ΑΜΚΑ: 01015012345",
+  "status": 404,
+  "timestamp": "2024-03-15T10:30:00Z"
+}
+```
+
+Clients can rely on `code` and `status` without parsing free-form messages.
+
+---
+
 ## Getting Started
 
 ### Prerequisites
 - Java 24+
 - MySQL 8+
+- Maven (or use the bundled wrapper)
 
 ### Configuration
 
@@ -117,13 +172,13 @@ jwt.secret=your-secret-key-at-least-32-characters-long
 jwt.expiration-ms=86400000
 ```
 
-### Run Locally
+### Run locally
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-### Run Tests
+### Run tests
 
 ```bash
 ./mvnw test
@@ -140,7 +195,7 @@ curl -X POST http://localhost:8080/api/auth/login \
   -d '{"username": "doctor1", "password": "password123"}'
 ```
 
-**Register a patient and admit (Clerk workflow)**
+**Register a patient and admit (atomic clerk workflow)**
 ```bash
 curl -X POST http://localhost:8080/api/clerk/hospitalizations \
   -H "Authorization: Bearer <token>" \
@@ -164,81 +219,34 @@ curl http://localhost:8080/api/patients/01015012345/tests \
 
 ---
 
-## ΑΜΚΑ Validation
-
-ΑΜΚΑ (Αριθμός Μητρώου Κοινωνικής Ασφάλισης) is the Greek social security number — 11 digits encoding birth date (DDMMYY) + a sequential number + a Luhn check digit.
-
-The validator (`AmkaValidator.java`) implements:
-- Length and digit-only checks
-- Full Luhn algorithm (doubling even-position digits from the left)
-- Birth-date extraction with century pivot logic
-
----
-
-## Error Responses
-
-All errors return a consistent JSON structure:
-
-```json
-{
-  "code": "NOT_FOUND",
-  "message": "Δεν βρέθηκε ασθενής με ΑΜΚΑ: 01015012345",
-  "status": 404,
-  "timestamp": "2024-03-15T10:30:00Z"
-}
-```
-
----
-
-## Notes on the Database Schema
-
-The database uses Greek-language table and column names (e.g. `ασθενεισ`, `νοσηλειεσ_ασθενων`) as this project was built against a university-provided schema modelling the Greek public healthcare system.
-
----
-
-## Live Deployment
-
-The API is deployed on Railway and publicly accessible:
-
-**Base URL**
-
-https://spring-boot-greek-hospital-system-production.up.railway.app
-
-Example:
-
-POST: https://spring-boot-greek-hospital-system-production.up.railway.app/api/auth/login
-
-**Note:**
-
-This project provides a secured REST API and does not include a browser-based user interface.
-Most endpoints require JWT authentication and must be accessed using an API client such as Postman, curl, or a frontend application.
-
-Typical workflow:
-1. Authenticate via `POST /api/auth/login`
-2. Receive a JWT token
-3. Include the token in subsequent requests using the `Authorization: Bearer <token>` header
-
 ## Deployment
 
-The application is deployed using **Railway** with automatic GitHub integration.
+The API is deployed on **Railway** with GitHub integration. Every push to `main` triggers an automatic build and redeploy.
+GitHub (main) → Railway Build → Cloud Deployment → Public HTTPS Endpoint
+**Live base URL**
+https://spring-boot-greek-hospital-system-production.up.railway.app
+Example:
+POST https://spring-boot-greek-hospital-system-production.up.railway.app/api/auth/login
+### Production environment variables
 
-Pipeline:
+| Variable | Purpose |
+|---|---|
+| `SPRING_DATASOURCE_URL` | JDBC URL for the managed MySQL instance |
+| `SPRING_DATASOURCE_USERNAME` | DB user |
+| `SPRING_DATASOURCE_PASSWORD` | DB password |
+| `JWT_SECRET` | Signing key for issued tokens |
+| `JWT_EXPIRATION_MS` | Token lifetime in milliseconds |
 
-GitHub → Railway Build → Cloud Deployment → Public HTTPS Endpoint
+### Note on the API surface
 
-Every push to the `main` branch triggers an automatic redeployment.
+This project ships a secured REST API and does not include a browser-based UI. Most endpoints require JWT authentication and are intended to be consumed from Postman, curl, or a separate frontend.
 
-## Environment variables used in production:
+Typical flow:
+1. Authenticate via `POST /api/auth/login`
+2. Receive a JWT token
+3. Include `Authorization: Bearer <token>` on subsequent requests
 
-SPRING_DATASOURCE_URL
-
-SPRING_DATASOURCE_USERNAME
-
-SPRING_DATASOURCE_PASSWORD
-
-JWT_SECRET
-
-JWT_EXPIRATION_MS
+---
 
 ## Author
 
