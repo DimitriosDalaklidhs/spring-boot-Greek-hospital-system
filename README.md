@@ -32,7 +32,7 @@ A secure, production structured REST API for managing hospital patients, hospita
 
 ## Domain Context
 
-The schema models the Greek public healthcare system and was built against a university-provided specification. Table and column names are in Greek (e.g. `ασθενεισ`, `νοσηλειεσ_ασθενων`), and patient identity is keyed on **ΑΜΚΑ**, the 11-digit Greek social security number that encodes the holder's birth date.
+The schema models the Greek public healthcare system and was built against a university-provided specification. Table and column names are in Greek (e.g. `ασθενεισ`, `νοσηλειεσ_ασθενων`), and patient identity is keyed on **ΑΜΚΑ**, the 11 digit Greek social security number that encodes the holder's birth date.
 
 This domain context shapes two of the more interesting parts of the codebase: the ΑΜΚΑ validator and the clerk admission workflow, both described below.
 
@@ -78,7 +78,7 @@ src/test/java/com.example.demo
 
 ## Security Model
 
-Authentication is stateless and JWT-based. The `JwtAuthFilter` runs once per request, extracts and validates the token, and populates the `SecurityContext` with the authenticated principal and authorities. Role checks are then enforced declaratively in `SecurityConfig` at the **HTTP-method level** — the same URL can be readable by a CLERK but writable only by a DOCTOR.
+Authentication is stateless and JWT based. The `JwtAuthFilter` runs once per request, extracts and validates the token and populates the `SecurityContext` with the authenticated principal and authorities. Role checks are then enforced declaratively in `SecurityConfig` at the **HTTP-method level** , the same URL can be readable by a CLERK but writable only by a DOCTOR.
 
 | Role | Capabilities |
 |---|---|
@@ -86,7 +86,7 @@ Authentication is stateless and JWT-based. The `JwtAuthFilter` runs once per req
 | `DOCTOR` | Full clinical access — record tests, discharge patients |
 | `CLERK` | Front-desk operations — register patients, admit |
 
-This matters because in a hospital setting, a clerk should be able to admit a patient but never record a medical test, and a doctor should be able to discharge a patient but should not be creating user accounts. The matrix below reflects that separation.
+This matters because in a hospital setting a clerk should be able to admit a patient but never record a medical test and a doctor should be able to discharge a patient but should not be creating user accounts. The matrix below reflects that separation.
 
 ---
 
@@ -123,15 +123,15 @@ This matters because in a hospital setting, a clerk should be able to admit a pa
 
 ### Atomic clerk admission
 
-In a real hospital, a clerk receiving a new patient performs two logically inseparable actions: create the patient record and admit them. Splitting these into two API calls would leave room for a half-completed admission if the second call failed.
+In a real hospital, a clerk receiving a new patient performs two logically inseparable actions: create the patient record and admit them. Splitting these into two API calls would leave room for a half completed admission if the second call failed.
 
-`ClerkService` wraps both operations in a single `@Transactional` boundary. If admission fails, the patient insert is rolled back. The controller exposes this as a single endpoint so the client cannot accidentally produce a partial state.
+`ClerkService` wraps both operations in a single `@Transactional` boundary. If admission fails then the patient insert is rolled back. The controller exposes this as a single endpoint so the client cannot accidentally produce a partial state.
 
 ### ΑΜΚΑ validation
 
 ΑΜΚΑ (Αριθμός Μητρώου Κοινωνικής Ασφάλισης) is an 11-digit identifier: `DDMMYY` + sequential number + Luhn check digit. The validator performs:
 
-- Length and digit-only checks
+- Length and digit only checks
 - Full Luhn algorithm, doubling even position digits from the left, summing digits of the doubled values, comparing against the check digit
 - Birth-date extraction with **century pivot logic** : the two digit year is disambiguated by comparing against the current date, since a `01015012345` could mean 1950 or 2050
 
