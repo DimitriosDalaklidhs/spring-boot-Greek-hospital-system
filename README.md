@@ -1,6 +1,6 @@
 # Greek Hospital Management REST API
 
-A secure, production structured REST API for managing hospital patients, hospitalizations, and medical tests. Built with **Java 24**, **Spring Boot 3**, and **MySQL**, deployed on Railway with automatic CI/CD from GitHub.
+A secure, production structured REST API for managing hospital patients, hospitalizations, and medical tests. Built with **Java 17**, **Spring Boot 3**, and **MySQL**, deployed on Railway with automatic CI/CD from GitHub.
 
 ---
 
@@ -19,7 +19,7 @@ A secure, production structured REST API for managing hospital patients, hospita
 
 | Layer | Technology |
 |---|---|
-| Language | Java 24 |
+| Language | Java 17 |
 | Framework | Spring Boot 3 |
 | Security | Spring Security + JWT (jjwt) |
 | Database | MySQL 8 |
@@ -155,7 +155,7 @@ Clients can rely on `code` and `status` without parsing free-form messages.
 ## Getting Started
 
 ### Prerequisites
-- Java 24+
+- Java 17+
 - MySQL 8+
 - Maven (or use the bundled wrapper)
 
