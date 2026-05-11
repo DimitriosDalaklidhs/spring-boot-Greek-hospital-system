@@ -1,14 +1,14 @@
 # Greek Hospital Management REST API
 
-A secure, production structured REST API for managing hospital patients, hospitalizations, and medical tests. Built with **Java 17**, **Spring Boot 3**, and **MySQL**, deployed on Railway with automatic CI/CD from GitHub.
+A secure, production-structured REST API for managing hospital patients, hospitalizations, and medical tests. Built with **Java 17**, **Spring Boot 3**, and **MySQL**, deployed on Railway with automatic CI/CD from GitHub.
 
 ---
 
 ## Highlights
 
-- **Atomic clerk workflow** : patient registration + hospitalization in a single transactional request
-- **ΑΜΚΑ validation** : full Luhn implementation with birth-date extraction and century pivot logic
-- **Per-method role-based access control** : fine-grained authorization (DOCTOR / CLERK / ADMIN) at the HTTP-method level
+- **Atomic clerk workflow**: patient registration + hospitalization in a single transactional request
+- **ΑΜΚΑ validation**: full Luhn implementation with birth-date extraction and century pivot logic
+- **Per-method role-based access control**: fine-grained authorization (DOCTOR / CLERK / ADMIN) at the HTTP-method level
 - **Stateless JWT authentication** with role extraction at the filter layer
 - **Strict Controller → Service → DAO layering** with transactions owned by the service tier
 - **Live deployment** on Railway with automated redeploys on every push to `main`
@@ -32,15 +32,67 @@ A secure, production structured REST API for managing hospital patients, hospita
 
 ## Domain Context
 
-The schema models the Greek public healthcare system and was built against a university-provided specification. Table and column names are in Greek (e.g. `ασθενεισ`, `νοσηλειεσ_ασθενων`), and patient identity is keyed on **ΑΜΚΑ**, the 11 digit Greek social security number that encodes the holder's birth date.
+The schema models the Greek public healthcare system and was built against a university-provided specification. Table and column names are in Greek (e.g. `ασθενεισ`, `νοσηλειεσ_ασθενων`), and patient identity is keyed on **ΑΜΚΑ**, the 11-digit Greek social security number that encodes the holder's birth date.
 
 This domain context shapes two of the more interesting parts of the codebase: the ΑΜΚΑ validator and the clerk admission workflow, both described below.
 
 ---
 
 ## Architecture
-```
+
 The project follows a strict **Controller → Service → DAO** separation. Controllers handle HTTP concerns only, services own transactions and business rules, and DAOs encapsulate SQL.
+
+```mermaid
+flowchart TB
+    Client[Client<br/>curl / Postman / Frontend]
+
+    subgraph Security[Security Layer]
+        Filter[JwtAuthFilter]
+        Config[SecurityConfig<br/>per-method RBAC]
+    end
+
+    subgraph Controllers[Controllers]
+        AuthC[AuthController]
+        PatientC[PatientController]
+        HospC[HospitalizationController]
+        TestC[PatientTestController]
+        ClerkC[ClerkController]
+    end
+
+    subgraph Services[Services<br/>@Transactional boundary]
+        DocS[DoctorService]
+        ClerkS[ClerkService]
+    end
+
+    subgraph DAOs[DAOs<br/>JdbcTemplate]
+        PatientD[PatientDao]
+        HospD[HospitalizationDao]
+        TestD[PatientTestDao]
+    end
+
+    DB[(MySQL 8<br/>Greek schema)]
+
+    Client --> Filter
+    Filter --> Config
+    Config --> Controllers
+    AuthC --> DocS
+    PatientC --> DocS
+    HospC --> DocS
+    TestC --> DocS
+    ClerkC --> ClerkS
+    DocS --> PatientD
+    DocS --> HospD
+    DocS --> TestD
+    ClerkS --> PatientD
+    ClerkS --> HospD
+    PatientD --> DB
+    HospD --> DB
+    TestD --> DB
+```
+
+### Package layout
+
+```
 com.example.demo
 ├── auth/
 │   ├── JwtUtil.java                    → token generation & validation
@@ -68,17 +120,47 @@ com.example.demo
 ├── validation/
 │   └── AmkaValidator.java              → Luhn + birth-date extraction
 └── Db.java                             → DataSource config + parsing utils
+
 src/test/java/com.example.demo
 └── auth/
-├── AuthControllerTest.java         → 8 tests, login + register flows
-├── JwtUtilTest.java                → 6 tests, generate/parse/validate/expiry
-└── UserDetailsServiceImplTest.java → 2 tests, found + not found
+    ├── AuthControllerTest.java         → 8 tests, login + register flows
+    ├── JwtUtilTest.java                → 6 tests, generate/parse/validate/expiry
+    └── UserDetailsServiceImplTest.java → 2 tests, found + not found
 ```
+
 ---
 
 ## Security Model
 
-Authentication is stateless and JWT based. The `JwtAuthFilter` runs once per request, extracts and validates the token and populates the `SecurityContext` with the authenticated principal and authorities. Role checks are then enforced declaratively in `SecurityConfig` at the **HTTP-method level** , the same URL can be readable by a CLERK but writable only by a DOCTOR.
+Authentication is stateless and JWT-based. The `JwtAuthFilter` runs once per request, extracts and validates the token, and populates the `SecurityContext` with the authenticated principal and authorities. Role checks are then enforced declaratively in `SecurityConfig` at the **HTTP-method level**: the same URL can be readable by a CLERK but writable only by a DOCTOR.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant API as Spring Boot API
+    participant Filter as JwtAuthFilter
+    participant Auth as AuthController
+    participant Ctrl as Protected Controller
+
+    User->>Auth: POST /api/auth/login (username, password)
+    Auth->>Auth: AuthenticationManager.authenticate()
+    Auth->>Auth: JwtUtil.generateToken(user, role)
+    Auth-->>User: { token, username, role }
+
+    Note over User,API: Subsequent requests
+
+    User->>API: GET /api/patients/{amka}<br/>Authorization: Bearer <token>
+    API->>Filter: doFilterInternal()
+    Filter->>Filter: parse + verify signature + check expiry
+    alt Token valid
+        Filter->>Filter: populate SecurityContext (role)
+        Filter->>Ctrl: forward request
+        Ctrl-->>User: 200 OK + payload
+    else Token invalid / expired
+        Filter-->>User: 401 Unauthorized
+    end
+```
 
 | Role | Capabilities |
 |---|---|
@@ -86,7 +168,7 @@ Authentication is stateless and JWT based. The `JwtAuthFilter` runs once per req
 | `DOCTOR` | Full clinical access — record tests, discharge patients |
 | `CLERK` | Front-desk operations — register patients, admit |
 
-This matters because in a hospital setting a clerk should be able to admit a patient but never record a medical test and a doctor should be able to discharge a patient but should not be creating user accounts. The matrix below reflects that separation.
+This matters because in a hospital setting a clerk should be able to admit a patient but never record a medical test, and a doctor should be able to discharge a patient but should not be creating user accounts. The matrix below reflects that separation.
 
 ---
 
@@ -123,21 +205,68 @@ This matters because in a hospital setting a clerk should be able to admit a pat
 
 ### Atomic clerk admission
 
-In a real hospital, a clerk receiving a new patient performs two logically inseparable actions: create the patient record and admit them. Splitting these into two API calls would leave room for a half completed admission if the second call failed.
+In a real hospital, a clerk receiving a new patient performs two logically inseparable actions: create the patient record and admit them. Splitting these into two API calls would leave room for a half-completed admission if the second call failed.
 
-`ClerkService` wraps both operations in a single `@Transactional` boundary. If admission fails then the patient insert is rolled back. The controller exposes this as a single endpoint so the client cannot accidentally produce a partial state.
+`ClerkService` wraps both operations in a single `@Transactional` boundary. If admission fails, the patient insert is rolled back. The controller exposes this as a single endpoint so the client cannot accidentally produce a partial state.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Clerk
+    participant Ctrl as ClerkController
+    participant Svc as ClerkService<br/>@Transactional
+    participant PDao as PatientDao
+    participant HDao as HospitalizationDao
+    participant DB as MySQL
+
+    Clerk->>Ctrl: POST /api/clerk/hospitalizations
+    Ctrl->>Svc: registerPatientAndHospitalization(req)
+
+    Note over Svc: BEGIN TRANSACTION
+
+    Svc->>Svc: AmkaValidator.validateOrThrow()
+    Svc->>HDao: hospitalExists(hospitalId)?
+    HDao->>DB: SELECT 1 FROM νοσοκομεια
+    DB-->>HDao: exists
+    HDao-->>Svc: true
+
+    Svc->>PDao: getPatientCode(amka)
+    PDao->>DB: SELECT ΚΩΔ_ΑΣΘΕΝΗ
+    alt Patient not found
+        PDao-->>Svc: empty
+        Svc->>PDao: insert(amka, name, ...)
+        PDao->>DB: INSERT INTO ασθενεισ
+        DB-->>PDao: generated key
+        PDao-->>Svc: patientCode
+    else Patient exists
+        PDao-->>Svc: patientCode
+    end
+
+    Svc->>HDao: insert(patientCode, hospitalId, date)
+    HDao->>DB: INSERT INTO νοσηλειεσ_ασθενων
+
+    alt All succeed
+        Note over Svc: COMMIT
+        Svc-->>Ctrl: { patientCode, hospitalizationId }
+        Ctrl-->>Clerk: 201 Created
+    else Any step fails
+        Note over Svc: ROLLBACK — no partial state
+        Svc-->>Ctrl: exception
+        Ctrl-->>Clerk: 4xx/5xx via GlobalExceptionHandler
+    end
+```
 
 ### ΑΜΚΑ validation
 
 ΑΜΚΑ (Αριθμός Μητρώου Κοινωνικής Ασφάλισης) is an 11-digit identifier: `DDMMYY` + sequential number + Luhn check digit. The validator performs:
 
-- Length and digit only checks
-- Full Luhn algorithm, doubling even position digits from the left, summing digits of the doubled values, comparing against the check digit
-- Birth-date extraction with **century pivot logic** : the two digit year is disambiguated by comparing against the current date, since a `01015012345` could mean 1950 or 2050
+- Length and digit-only checks
+- Full Luhn algorithm: doubling even-position digits from the left, summing digits of the doubled values, comparing against the check digit
+- Birth-date extraction with **century pivot logic**: the two-digit year is disambiguated by comparing against the current date, since a `01015012345` could mean 1950 or 2050
 
 ### Consistent error envelope
 
-`GlobalExceptionHandler` translates every exception path that is, validation failures, missing entities, auth errors, constraint violations. All into a single JSON shape:
+`GlobalExceptionHandler` translates every exception path — validation failures, missing entities, auth errors, constraint violations — into a single JSON shape:
 
 ```json
 {
@@ -222,11 +351,22 @@ curl http://localhost:8080/api/patients/01015012345/tests \
 ## Deployment
 
 The API is deployed on **Railway** with GitHub integration. Every push to `main` triggers an automatic build and redeploy.
+
+```
 GitHub (main) → Railway Build → Cloud Deployment → Public HTTPS Endpoint
+```
+
 **Live base URL**
+
+```
 https://spring-boot-greek-hospital-system-production.up.railway.app
+```
+
 Example:
+```
 POST https://spring-boot-greek-hospital-system-production.up.railway.app/api/auth/login
+```
+
 ### Production environment variables
 
 | Variable | Purpose |
