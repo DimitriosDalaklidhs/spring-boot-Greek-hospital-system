@@ -44,33 +44,33 @@ The project follows a strict **Controller → Service → DAO** separation. Cont
 
 ```mermaid
 flowchart TB
-    Client[Client<br/>curl / Postman / Frontend]
+    Client["Client (curl / Postman / Frontend)"]
 
-    subgraph Security[Security Layer]
-        Filter[JwtAuthFilter]
-        Config[SecurityConfig<br/>per-method RBAC]
+    subgraph Security["Security Layer"]
+        Filter["JwtAuthFilter"]
+        Config["SecurityConfig — per-method RBAC"]
     end
 
-    subgraph Controllers[Controllers]
-        AuthC[AuthController]
-        PatientC[PatientController]
-        HospC[HospitalizationController]
-        TestC[PatientTestController]
-        ClerkC[ClerkController]
+    subgraph Controllers["Controllers"]
+        AuthC["AuthController"]
+        PatientC["PatientController"]
+        HospC["HospitalizationController"]
+        TestC["PatientTestController"]
+        ClerkC["ClerkController"]
     end
 
-    subgraph Services[Services<br/>@Transactional boundary]
-        DocS[DoctorService]
-        ClerkS[ClerkService]
+    subgraph Services["Services — Transactional boundary"]
+        DocS["DoctorService"]
+        ClerkS["ClerkService"]
     end
 
-    subgraph DAOs[DAOs<br/>JdbcTemplate]
-        PatientD[PatientDao]
-        HospD[HospitalizationDao]
-        TestD[PatientTestDao]
+    subgraph DAOs["DAOs — JdbcTemplate"]
+        PatientD["PatientDao"]
+        HospD["HospitalizationDao"]
+        TestD["PatientTestDao"]
     end
 
-    DB[(MySQL 8<br/>Greek schema)]
+    DB[("MySQL 8 — Greek schema")]
 
     Client --> Filter
     Filter --> Config
@@ -146,11 +146,11 @@ sequenceDiagram
     User->>Auth: POST /api/auth/login (username, password)
     Auth->>Auth: AuthenticationManager.authenticate()
     Auth->>Auth: JwtUtil.generateToken(user, role)
-    Auth-->>User: { token, username, role }
+    Auth-->>User: token + username + role
 
     Note over User,API: Subsequent requests
 
-    User->>API: GET /api/patients/{amka}<br/>Authorization: Bearer <token>
+    User->>API: GET /api/patients/{amka} with Bearer token
     API->>Filter: doFilterInternal()
     Filter->>Filter: parse + verify signature + check expiry
     alt Token valid
@@ -214,7 +214,7 @@ sequenceDiagram
     autonumber
     actor Clerk
     participant Ctrl as ClerkController
-    participant Svc as ClerkService<br/>@Transactional
+    participant Svc as ClerkService (Transactional)
     participant PDao as PatientDao
     participant HDao as HospitalizationDao
     participant DB as MySQL
@@ -247,10 +247,10 @@ sequenceDiagram
 
     alt All succeed
         Note over Svc: COMMIT
-        Svc-->>Ctrl: { patientCode, hospitalizationId }
+        Svc-->>Ctrl: patientCode + hospitalizationId
         Ctrl-->>Clerk: 201 Created
     else Any step fails
-        Note over Svc: ROLLBACK — no partial state
+        Note over Svc: ROLLBACK - no partial state
         Svc-->>Ctrl: exception
         Ctrl-->>Clerk: 4xx/5xx via GlobalExceptionHandler
     end
