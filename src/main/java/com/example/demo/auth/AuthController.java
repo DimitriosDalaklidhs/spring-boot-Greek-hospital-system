@@ -21,9 +21,9 @@ import java.util.Set;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    // =========================
+    
     // DTOs
-    // =========================
+    
 
     public record LoginRequest(
             @NotBlank String username,
@@ -42,16 +42,16 @@ public class AuthController {
             @NotBlank String role
     ) {}
 
-    // =========================
+   
     // Allowed roles
-    // =========================
+  
 
     private static final Set<String> ALLOWED_ROLES =
             Set.of("ROLE_DOCTOR", "ROLE_CLERK", "ROLE_ADMIN");
 
-    // =========================
+    
     // Dependencies
-    // =========================
+    
 
     private final AuthenticationManager authManager;
     private final JwtUtil jwtUtil;
@@ -70,9 +70,9 @@ public class AuthController {
         this.jdbc = jdbc;
     }
 
-    // =========================
+   
     // LOGIN
-    // =========================
+    
 
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest req) {
@@ -108,9 +108,9 @@ public class AuthController {
         }
     }
 
-    // =========================
+   
     // REGISTER
-    // =========================
+    
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
