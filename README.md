@@ -1,6 +1,6 @@
 # Greek Hospital Management REST API
 
-A secure, production-structured REST API for managing hospital patients, hospitalizations, and medical tests. Built with **Java 17**, **Spring Boot 3**, and **MySQL**, deployed on Railway with automatic CI/CD from GitHub.
+A secure, production-structured REST API for managing hospital patients, hospitalizations, and medical tests. Built with **Java 17**, **Spring Boot 3**, and **MySQL**, and packaged as a containerised stack that runs from a clean clone with a single command.
 
 ---
 
@@ -11,7 +11,7 @@ A secure, production-structured REST API for managing hospital patients, hospita
 - **Per-method role-based access control**: fine-grained authorization (DOCTOR / CLERK / ADMIN) at the HTTP-method level
 - **Stateless JWT authentication** with role extraction at the filter layer
 - **Strict Controller → Service → DAO layering** with transactions owned by the service tier
-- **Live deployment** on Railway with automated redeploys on every push to `main`
+- **Containerised stack**: multi-stage image build plus Compose, bringing up the API and a preloaded MySQL 8 in one command
 
 ---
 
@@ -26,7 +26,7 @@ A secure, production-structured REST API for managing hospital patients, hospita
 | DB Access | Spring JdbcTemplate |
 | Connection Pool | HikariCP |
 | Build Tool | Maven |
-| Hosting | Railway (app + MySQL) |
+| Runtime | Docker + Docker Compose |
 
 ---
 
@@ -281,16 +281,33 @@ Clients can rely on `code` and `status` without parsing free-form messages.
 
 ---
 
-## Getting Started
+## Running the Stack
 
-### Prerequisites
-- Java 17+
-- MySQL 8+
-- Maven (or use the bundled wrapper)
+### With Docker Compose (recommended)
 
-### Configuration
+The repository ships a multi-stage `Dockerfile` and a `docker-compose.yml`, so the full stack — the API plus a MySQL 8 instance with the Greek schema preloaded — runs from a clean clone with a single command.
 
-Set the following in `application.properties` or as environment variables:
+```bash
+git clone https://github.com/DimitriosDalaklidhs/spring-boot-greek-hospital-system.git
+cd spring-boot-greek-hospital-system
+docker compose up --build
+```
+
+The API is then available at `http://localhost:8080`.
+
+`src/main/resources/schema.sql` is mounted into MySQL's init directory and executes on first boot, creating the database and the Greek-named tables under `utf8mb4`. The app container waits on a MySQL healthcheck before starting, so the first run comes up cleanly rather than retrying against a database that isn't listening yet.
+
+To stop the stack, `Ctrl-C` or `docker compose down`. Adding `-v` also drops the MySQL volume, which forces the schema to be re-initialised on the next start.
+
+### Image build
+
+Two stages: a Maven/JDK 17 stage compiles and repackages the Spring Boot fat jar, and a JRE-only Alpine stage runs it as a non-root user. The JVM sizes its heap from the container's memory limit via `-XX:MaxRAMPercentage` rather than a hardcoded `-Xmx`.
+
+### Without Docker
+
+Requires Java 17+, MySQL 8+, and Maven (or the bundled `mvnw` wrapper).
+
+Load `src/main/resources/schema.sql` into a local MySQL instance, then supply configuration through environment variables or `src/main/resources/application.properties`:
 
 ```properties
 spring.datasource.url=jdbc:mysql://localhost:3306/hospital_db
@@ -301,7 +318,7 @@ jwt.secret=your-secret-key-at-least-32-characters-long
 jwt.expiration-ms=86400000
 ```
 
-### Run locally
+Then:
 
 ```bash
 ./mvnw spring-boot:run
@@ -312,6 +329,22 @@ jwt.expiration-ms=86400000
 ```bash
 ./mvnw test
 ```
+
+---
+
+## Configuration
+
+All configuration is read from the environment — no credentials are committed to the repository.
+
+| Variable | Purpose |
+|---|---|
+| `SPRING_DATASOURCE_URL` | JDBC URL for the MySQL instance |
+| `SPRING_DATASOURCE_USERNAME` | DB user |
+| `SPRING_DATASOURCE_PASSWORD` | DB password |
+| `JWT_SECRET` | Signing key for issued tokens |
+| `JWT_EXPIRATION_MS` | Token lifetime in milliseconds |
+
+`docker-compose.yml` supplies development values for local use. Any other target — Kubernetes, a PaaS, a plain VM — supplies its own.
 
 ---
 
@@ -348,36 +381,7 @@ curl http://localhost:8080/api/patients/01015012345/tests \
 
 ---
 
-## Deployment
-
-The API is deployed on **Railway** with GitHub integration. Every push to `main` triggers an automatic build and redeploy.
-
-```
-GitHub (main) → Railway Build → Cloud Deployment → Public HTTPS Endpoint
-```
-
-**Live base URL**
-
-```
-https://spring-boot-greek-hospital-system-production.up.railway.app
-```
-
-Example:
-```
-POST https://spring-boot-greek-hospital-system-production.up.railway.app/api/auth/login
-```
-
-### Production environment variables
-
-| Variable | Purpose |
-|---|---|
-| `SPRING_DATASOURCE_URL` | JDBC URL for the managed MySQL instance |
-| `SPRING_DATASOURCE_USERNAME` | DB user |
-| `SPRING_DATASOURCE_PASSWORD` | DB password |
-| `JWT_SECRET` | Signing key for issued tokens |
-| `JWT_EXPIRATION_MS` | Token lifetime in milliseconds |
-
-### Note on the API surface
+## Note on the API surface
 
 This project ships a secured REST API and does not include a browser-based UI. Most endpoints require JWT authentication and are intended to be consumed from Postman, curl, or a separate frontend.
 
@@ -385,6 +389,8 @@ Typical flow:
 1. Authenticate via `POST /api/auth/login`
 2. Receive a JWT token
 3. Include `Authorization: Bearer <token>` on subsequent requests
+
+The schema creates empty tables, so a fresh stack has no users. Seed an ADMIN account directly in the database before using `POST /api/auth/register` for the rest.
 
 ---
 
