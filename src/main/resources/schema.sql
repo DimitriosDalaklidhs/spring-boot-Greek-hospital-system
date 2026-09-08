@@ -1,3 +1,4 @@
+SET NAMES utf8mb4;
 -- ============================================================
 -- Greek Hospital Management System — Database Schema
 -- Reconstructed from DAO source files
