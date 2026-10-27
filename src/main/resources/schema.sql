@@ -1,7 +1,6 @@
 SET NAMES utf8mb4;
 -- ============================================================
 -- Greek Hospital Management System — Database Schema
--- Reconstructed from DAO source files
 -- Encoding: UTF-8 (Greek column/table names)
 -- ============================================================
 
@@ -95,6 +94,6 @@ VALUES (1, 'Γενική Αίματος', 15.00),
        (3, 'MRI', 200.00);
 
 -- Default ADMIN user (password: admin123 — change before production!)
--- BCrypt hash of "admin123"
+-- BCrypt hash of "admin123" (cost 12, same as the app's encoder)
 INSERT IGNORE INTO users (username, password, role)
-VALUES ('admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'ROLE_ADMIN');
+VALUES ('admin', '$2a$12$wBbZmPlnNuicryBXF9HiGu8MdSmcTvgWTLcOanVGjrRt768d9QxbC', 'ROLE_ADMIN');
