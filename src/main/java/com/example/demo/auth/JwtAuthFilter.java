@@ -1,4 +1,3 @@
-
 package com.example.demo.auth;
 
 import jakarta.servlet.FilterChain;
@@ -31,14 +30,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain chain)
             throws ServletException, IOException {
-
-        String path = request.getServletPath();
-
-        //  Skip JWT validation for authentication endpoints
-        if (path.startsWith("/api/auth/")) {
-            chain.doFilter(request, response);
-            return;
-        }
 
         String header = request.getHeader("Authorization");
 
