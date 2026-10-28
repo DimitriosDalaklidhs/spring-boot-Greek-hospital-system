@@ -1,6 +1,6 @@
 # Greek Hospital Management REST API
 
-A secure, production-structured REST API for managing hospital patients, hospitalizations, and medical tests. Built with **Java 17**, **Spring Boot 3**, and **MySQL**, and packaged as a containerised stack that runs from a clean clone with a single command.
+A secure, production-structured REST API for managing hospital patients, hospitalizations, and medical tests. Built with **Java 17**, **Spring Boot 4**, and **MySQL**, and packaged as a containerised stack that runs from a clean clone with a single command.
 
 ---
 
@@ -20,7 +20,7 @@ A secure, production-structured REST API for managing hospital patients, hospita
 | Layer | Technology |
 |---|---|
 | Language | Java 17 |
-| Framework | Spring Boot 3 |
+| Framework | Spring Boot 4 |
 | Security | Spring Security + JWT (jjwt) |
 | Database | MySQL 8 |
 | DB Access | Spring JdbcTemplate |
@@ -100,7 +100,7 @@ com.example.demo
 │   ├── UserDetailsServiceImpl.java
 │   └── AuthController.java             → /api/auth/login, /api/auth/register
 ├── config/
-│   └── SecurityConfig.java             → filter chain, role rules, CORS
+│   └── SecurityConfig.java             → filter chain, role rules
 ├── error/
 │   └── GlobalExceptionHandler.java     → consistent JSON error envelope
 ├── patient/
@@ -390,7 +390,7 @@ Typical flow:
 2. Receive a JWT token
 3. Include `Authorization: Bearer <token>` on subsequent requests
 
-The schema creates empty tables, so a fresh stack has no users. Seed an ADMIN account directly in the database before using `POST /api/auth/register` for the rest.
+On first boot the schema seeds one hospital, three medical tests and a default ADMIN account (`admin` / `admin123`). Log in as admin, then use `POST /api/auth/register` to create DOCTOR and CLERK accounts. Change the admin password before any real deployment.
 
 ---
 
