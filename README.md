@@ -48,7 +48,7 @@ flowchart TB
 
     subgraph Security["Security Layer"]
         Filter["JwtAuthFilter"]
-        Config["SecurityConfig — per-method RBAC"]
+        Config["SecurityConfig (per-method RBAC)"]
     end
 
     subgraph Controllers["Controllers"]
@@ -59,18 +59,18 @@ flowchart TB
         ClerkC["ClerkController"]
     end
 
-    subgraph Services["Services — Transactional boundary"]
+    subgraph Services["Services (transactional boundary)"]
         DocS["DoctorService"]
         ClerkS["ClerkService"]
     end
 
-    subgraph DAOs["DAOs — JdbcTemplate"]
+    subgraph DAOs["DAOs (JdbcTemplate)"]
         PatientD["PatientDao"]
         HospD["HospitalizationDao"]
         TestD["PatientTestDao"]
     end
 
-    DB[("MySQL 8 — Greek schema")]
+    DB[("MySQL 8, Greek schema")]
 
     Client --> Filter
     Filter --> Config
@@ -165,8 +165,8 @@ sequenceDiagram
 | Role | Capabilities |
 |---|---|
 | `ADMIN` | User account creation |
-| `DOCTOR` | Full clinical access — record tests, discharge patients |
-| `CLERK` | Front-desk operations — register patients, admit |
+| `DOCTOR` | Full clinical access: record tests, discharge patients |
+| `CLERK` | Front-desk operations: register patients, admit |
 
 This matters because in a hospital setting a clerk should be able to admit a patient but never record a medical test, and a doctor should be able to discharge a patient but should not be creating user accounts. The matrix below reflects that separation.
 
@@ -266,7 +266,7 @@ sequenceDiagram
 
 ### Consistent error envelope
 
-`GlobalExceptionHandler` translates every exception path — validation failures, missing entities, auth errors, constraint violations — into a single JSON shape:
+`GlobalExceptionHandler` translates every exception path (validation failures, missing entities, auth errors, constraint violations) into a single JSON shape:
 
 ```json
 {
@@ -285,7 +285,7 @@ Clients can rely on `code` and `status` without parsing free-form messages.
 
 ### With Docker Compose (recommended)
 
-The repository ships a multi-stage `Dockerfile` and a `docker-compose.yml`, so the full stack — the API plus a MySQL 8 instance with the Greek schema preloaded — runs from a clean clone with a single command.
+The repository ships a multi-stage `Dockerfile` and a `docker-compose.yml`, so the full stack (the API plus a MySQL 8 instance with the Greek schema preloaded) runs from a clean clone with a single command.
 
 ```bash
 git clone https://github.com/DimitriosDalaklidhs/spring-boot-greek-hospital-system.git
@@ -334,7 +334,7 @@ Then:
 
 ## Configuration
 
-All configuration is read from the environment — no credentials are committed to the repository.
+All configuration is read from the environment, so no credentials are committed to the repository.
 
 | Variable | Purpose |
 |---|---|
@@ -344,7 +344,7 @@ All configuration is read from the environment — no credentials are committed 
 | `JWT_SECRET` | Signing key for issued tokens |
 | `JWT_EXPIRATION_MS` | Token lifetime in milliseconds |
 
-`docker-compose.yml` supplies development values for local use. Any other target — Kubernetes, a PaaS, a plain VM — supplies its own.
+`docker-compose.yml` supplies development values for local use. Any other target (Kubernetes, a PaaS, a plain VM) supplies its own.
 
 ---
 
