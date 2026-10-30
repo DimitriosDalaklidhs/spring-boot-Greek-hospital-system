@@ -22,7 +22,7 @@ A secure, production-structured REST API for managing hospital patients, hospita
 | Language | Java 17 |
 | Framework | Spring Boot 4 |
 | Security | Spring Security + JWT (jjwt) |
-| Database | MySQL 8 |
+| Database | MySQL 8.4 |
 | DB Access | Spring JdbcTemplate |
 | Connection Pool | HikariCP |
 | Build Tool | Maven |
@@ -75,7 +75,7 @@ flowchart TB
     Client --> Filter
     Filter --> Config
     Config --> Controllers
-    AuthC --> DocS
+    AuthC -->|users table| DB
     PatientC --> DocS
     HospC --> DocS
     TestC --> DocS
@@ -94,34 +94,31 @@ flowchart TB
 
 ```
 com.example.demo
+├── App.java                            → Spring Boot entry point
+├── Db.java                             → DataSource (HikariCP) + date/gender parsing
+├── AmkaValidator.java                  → Luhn check + birth-date extraction
+├── ClerkController.java                → /api/clerk/hospitalizations
+├── ClerkService.java                   → atomic registration + admission
+├── DoctorService.java                  → patients, tests, admissions, discharge
+├── PatientController.java              → /api/patients
+├── PatientTestController.java          → /api/patients/{amka}/tests
+├── HospitalizationController.java      → /api/hospitalizations
+├── PatientDao.java
+├── PatientTestDao.java
+├── HospitalizationDao.java
 ├── auth/
-│   ├── JwtUtil.java                    → token generation & validation
+│   ├── AuthController.java             → /api/auth/login, /api/auth/register
 │   ├── JwtAuthFilter.java              → per-request JWT filter
-│   ├── UserDetailsServiceImpl.java
-│   └── AuthController.java             → /api/auth/login, /api/auth/register
+│   ├── JwtUtil.java                    → token generation & validation
+│   └── UserDetailsServiceImpl.java     → loads users for login
 ├── config/
 │   └── SecurityConfig.java             → filter chain, role rules
-├── error/
-│   └── GlobalExceptionHandler.java     → consistent JSON error envelope
-├── patient/
-│   ├── PatientController.java
-│   └── PatientDao.java
-├── hospitalization/
-│   ├── HospitalizationController.java
-│   └── HospitalizationDao.java
-├── test/
-│   ├── PatientTestController.java
-│   └── PatientTestDao.java
-├── doctor/
-│   └── DoctorService.java              → core medical-workflow logic
-├── clerk/
-│   ├── ClerkController.java
-│   └── ClerkService.java               → atomic registration + admission
-├── validation/
-│   └── AmkaValidator.java              → Luhn + birth-date extraction
-└── Db.java                             → DataSource config + parsing utils
+└── error/
+    └── GlobalExceptionHandler.java     → consistent JSON error envelope
 
-src/test/java/com.example.demo
+src/test/java/com/example/demo
+├── AmkaValidatorTest.java              → 15 tests, Luhn, input checks, birth-date extraction
+├── DemoApplicationTests.java           → context loads (needs a running MySQL)
 └── auth/
     ├── AuthControllerTest.java         → 8 tests, login + register flows
     ├── JwtUtilTest.java                → 6 tests, generate/parse/validate/expiry
@@ -138,9 +135,9 @@ Authentication is stateless and JWT-based. The `JwtAuthFilter` runs once per req
 sequenceDiagram
     autonumber
     actor User
-    participant API as Spring Boot API
-    participant Filter as JwtAuthFilter
     participant Auth as AuthController
+    participant Filter as JwtAuthFilter
+    participant Rules as SecurityConfig rules
     participant Ctrl as Protected Controller
 
     User->>Auth: POST /api/auth/login (username, password)
@@ -148,17 +145,21 @@ sequenceDiagram
     Auth->>Auth: JwtUtil.generateToken(user, role)
     Auth-->>User: token + username + role
 
-    Note over User,API: Subsequent requests
+    Note over User,Ctrl: Subsequent requests
 
-    User->>API: GET /api/patients/{amka} with Bearer token
-    API->>Filter: doFilterInternal()
-    Filter->>Filter: parse + verify signature + check expiry
+    User->>Filter: GET /api/patients/{amka} with Bearer token
+    Filter->>Filter: verify signature + expiry
     alt Token valid
-        Filter->>Filter: populate SecurityContext (role)
-        Filter->>Ctrl: forward request
-        Ctrl-->>User: 200 OK + payload
-    else Token invalid / expired
-        Filter-->>User: 401 Unauthorized
+        Filter->>Rules: SecurityContext holds user + role
+        alt Role allowed
+            Rules->>Ctrl: forward request
+            Ctrl-->>User: 200 OK + payload
+        else Role not allowed
+            Rules-->>User: 403 Forbidden
+        end
+    else Token missing, invalid or expired
+        Filter->>Rules: no user in SecurityContext
+        Rules-->>User: 401 Unauthorized
     end
 ```
 
@@ -261,12 +262,12 @@ sequenceDiagram
 ΑΜΚΑ (Αριθμός Μητρώου Κοινωνικής Ασφάλισης) is an 11-digit identifier: `DDMMYY` + sequential number + Luhn check digit. The validator performs:
 
 - Length and digit-only checks
-- Full Luhn algorithm: doubling even-position digits from the left, summing digits of the doubled values, comparing against the check digit
+- Full Luhn algorithm: doubling the even-position digits from the left (subtracting 9 when the result is 10 or more) and checking that the sum of all 11 digits is divisible by 10
 - Birth-date extraction with **century pivot logic**: the two-digit year is disambiguated by comparing against the current date, since a `01015012345` could mean 1950 or 2050
 
 ### Consistent error envelope
 
-`GlobalExceptionHandler` translates every exception path (validation failures, missing entities, auth errors, constraint violations) into a single JSON shape:
+`GlobalExceptionHandler` translates every error raised inside the API (validation failures, missing entities, invalid input, unexpected errors) into a single JSON shape:
 
 ```json
 {
@@ -277,7 +278,9 @@ sequenceDiagram
 }
 ```
 
-Clients can rely on `code` and `status` without parsing free-form messages.
+Clients can rely on `code` and `status` without parsing free-form messages. Unexpected errors return a generic 500 message and are logged with their full stack trace.
+
+Authentication and authorization failures (401 / 403) are rejected by the security layer before a request reaches the controllers, so they use a smaller `{"error", "message"}` body.
 
 ---
 
@@ -330,6 +333,12 @@ Then:
 ./mvnw test
 ```
 
+`DemoApplicationTests` starts the full application, so it needs a reachable MySQL and the environment variables listed under Configuration. To run only the unit tests, which need nothing running:
+
+```bash
+./mvnw test -Dtest='!DemoApplicationTests'
+```
+
 ---
 
 ## Configuration
@@ -350,17 +359,25 @@ All configuration is read from the environment, so no credentials are committed 
 
 ## Example Requests
 
-**Login**
+**Log in as the seeded admin**
 ```bash
 curl -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username": "doctor1", "password": "password123"}'
+  -d '{"username": "admin", "password": "admin123"}'
 ```
 
-**Register a patient and admit (atomic clerk workflow)**
+**Create a clerk account (admin token)**
+```bash
+curl -X POST http://localhost:8080/api/auth/register \
+  -H "Authorization: Bearer <admin token>" \
+  -H "Content-Type: application/json" \
+  -d '{"username": "clerk1", "password": "password123", "role": "ROLE_CLERK"}'
+```
+
+**Register a patient and admit (clerk token, atomic clerk workflow)**
 ```bash
 curl -X POST http://localhost:8080/api/clerk/hospitalizations \
-  -H "Authorization: Bearer <token>" \
+  -H "Authorization: Bearer <clerk token>" \
   -H "Content-Type: application/json" \
   -d '{
     "amka": "01015012345",
@@ -373,7 +390,7 @@ curl -X POST http://localhost:8080/api/clerk/hospitalizations \
   }'
 ```
 
-**Get patient test history**
+**Get patient test history (doctor or clerk token)**
 ```bash
 curl http://localhost:8080/api/patients/01015012345/tests \
   -H "Authorization: Bearer <token>"
